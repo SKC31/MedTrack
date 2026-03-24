@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MedTrack — Users</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div class="app">
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left"><div class="page-title">User Management</div></div>
+      <div class="topbar-right">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search users…"/>
+        </div>
+        <button class="btn btn-primary" id="btnAdd">+ Add User</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin:20px 28px">
+      <div class="filter-bar">
+        <select id="filterRole">
+          <option value="">All Roles</option>
+          <option value="admin">Admin</option>
+          <option value="staff">Staff</option>
+          <option value="healthcare">Healthcare</option>
+        </select>
+        <div class="filter-sep"></div>
+        <span id="countLabel" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Created</th>
+              <th style="width:80px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable">
+            <tr><td colspan="5"><div class="spinner-wrap"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add user modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New User</div>
+      <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name <span class="required">*</span></label>
+          <input class="form-control" id="fName" placeholder="e.g. Ruth Nambeye"/>
+        </div>
+        <div class="form-group">
+          <label>Email Address <span class="required">*</span></label>
+          <input class="form-control" type="email" id="fEmail" placeholder="user@hospital.local"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Password <span class="required">*</span></label>
+          <input class="form-control" type="password" id="fPassword" placeholder="Min. 6 characters"/>
+        </div>
+        <div class="form-group">
+          <label>Role <span class="required">*</span></label>
+          <select class="form-control" id="fRole">
+            <option value="staff">Staff (Maintenance)</option>
+            <option value="healthcare">Healthcare Personnel</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+      </div>
+      <div style="background:var(--teal-xlight);border:1px solid var(--teal-light);border-radius:var(--radius);padding:14px;font-size:12.5px;color:var(--text-2);margin-top:4px">
+        <div style="font-weight:700;color:var(--teal-dark);margin-bottom:8px">Role Permissions</div>
+        <div style="margin-bottom:4px">🔵 <strong>Staff</strong> — Update equipment status, record maintenance</div>
+        <div style="margin-bottom:4px">🟢 <strong>Healthcare</strong> — View equipment, report faults</div>
+        <div>🔴 <strong>Admin</strong> — Full access including user management</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('userModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnSave">Create User</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/sidebar.js"></script>
+<script>
+requireAdmin();
+let allUsers = [];
+
+const roleBadge = r => {
+  const map = { admin:'badge-red', staff:'badge-blue', healthcare:'badge-green' };
+  return `<span class="badge ${map[r]||'badge-grey'}">${r.charAt(0).toUpperCase()+r.slice(1)}</span>`;
+};
+
+async function load() {
+  try {
+    allUsers = await api.getUsers();
+    applyFilters();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function applyFilters() {
+  const q    = document.getElementById('searchInput').value.toLowerCase();
+  const role = document.getElementById('filterRole').value;
+  const rows = allUsers.filter(u =>
+    (!q    || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
+    (!role || u.role === role)
+  );
+  document.getElementById('countLabel').textContent = `${rows.length} of ${allUsers.length} users`;
+  renderTable(rows);
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('usersTable');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">👥</div><h3>No users found</h3></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(u => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="avatar" style="width:34px;height:34px;font-size:13px;flex-shrink:0">${u.name.charAt(0).toUpperCase()}</div>
+          <div class="td-name">${u.name}</div>
+        </div>
+      </td>
+      <td style="color:var(--text-muted)">${u.email}</td>
+      <td>${roleBadge(u.role)}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${fmtDate(u.created_at)}</td>
+      <td>
+        <button class="btn btn-ghost btn-icon btn-icon sm" title="Delete user"
+          onclick="deleteUser(${u.id},'${u.name.replace(/'/g,"\\'")}')">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('btnAdd').addEventListener('click', () => {
+  document.getElementById('fName').value     = '';
+  document.getElementById('fEmail').value    = '';
+  document.getElementById('fPassword').value = '';
+  document.getElementById('fRole').value     = 'staff';
+  openModal('userModal');
+});
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  const data = {
+    name:     document.getElementById('fName').value.trim(),
+    email:    document.getElementById('fEmail').value.trim(),
+    password: document.getElementById('fPassword').value,
+    role:     document.getElementById('fRole').value,
+  };
+  if (!data.name || !data.email || !data.password)
+    return showToast('All fields are required.', 'warning');
+  if (data.password.length < 6)
+    return showToast('Password must be at least 6 characters.', 'warning');
+  try {
+    await api.createUser(data);
+    showToast('User created successfully!');
+    closeModal('userModal');
+    load();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+function deleteUser(id, name) {
+  showConfirm({
+    title: 'Delete User',
+    message: `Remove "${name}" from the system? They will immediately lose access.`,
+    confirmText: 'Delete User',
+    onConfirm: async () => {
+      try {
+        await api.deleteUser(id);
+        showToast('User removed.', 'warning');
+        load();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('filterRole').addEventListener('change', applyFilters);
+load();
+</script>
+</body>
+</html>

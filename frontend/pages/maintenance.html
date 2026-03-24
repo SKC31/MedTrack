@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MedTrack — Maintenance</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div class="app">
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left"><div class="page-title">Maintenance Schedule</div></div>
+      <div class="topbar-right">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search records…"/>
+        </div>
+        <button class="btn btn-primary" id="btnAdd" style="display:none">+ Schedule</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin:20px 28px">
+      <div class="filter-bar">
+        <select id="filterStatus">
+          <option value="">All Statuses</option>
+          <option>Scheduled</option>
+          <option>In Progress</option>
+          <option>Completed</option>
+          <option>Overdue</option>
+        </select>
+        <select id="filterType">
+          <option value="">All Types</option>
+          <option>Preventive</option>
+          <option>Corrective</option>
+          <option>Inspection</option>
+          <option>Calibration</option>
+        </select>
+        <div class="filter-sep"></div>
+        <span id="countLabel" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipment</th>
+              <th>Type</th>
+              <th>Technician</th>
+              <th>Scheduled Date</th>
+              <th>Completed</th>
+              <th>Status</th>
+              <th style="width:100px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="maintenanceTable">
+            <tr><td colspan="7"><div class="spinner-wrap"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule modal -->
+<div class="modal-overlay" id="maintenanceModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Schedule Maintenance</div>
+      <button class="modal-close" onclick="closeModal('maintenanceModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Equipment <span class="required">*</span></label>
+        <select class="form-control" id="fEquipment"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Maintenance Type <span class="required">*</span></label>
+          <select class="form-control" id="fType">
+            <option>Preventive</option><option>Corrective</option>
+            <option>Inspection</option><option>Calibration</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Scheduled Date <span class="required">*</span></label>
+          <input class="form-control" type="date" id="fDate"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Technician Name <span class="required">*</span></label>
+        <input class="form-control" id="fTech" placeholder="e.g. John Mwila"/>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea class="form-control" id="fNotes" rows="3" placeholder="Optional…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('maintenanceModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnSave">Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Update status modal -->
+<div class="modal-overlay" id="statusModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Update Status</div>
+      <button class="modal-close" onclick="closeModal('statusModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="statusId"/>
+      <div class="form-group">
+        <label>New Status</label>
+        <select class="form-control" id="fNewStatus">
+          <option>Scheduled</option><option>In Progress</option>
+          <option>Completed</option><option>Overdue</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('statusModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnUpdateStatus">Update</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/sidebar.js"></script>
+<script>
+requireAuth();
+const isAdmin = getRole() === 'admin';
+let allRecords = [];
+if (isAdmin) document.getElementById('btnAdd').style.display = 'inline-flex';
+
+async function load() {
+  try {
+    allRecords = await api.getMaintenance();
+    applyFilters();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function applyFilters() {
+  const q    = document.getElementById('searchInput').value.toLowerCase();
+  const stat = document.getElementById('filterStatus').value;
+  const type = document.getElementById('filterType').value;
+  const rows = allRecords.filter(r =>
+    (!q    || (r.equipment_name||'').toLowerCase().includes(q) || r.technician_name.toLowerCase().includes(q)) &&
+    (!stat || r.status === stat) &&
+    (!type || r.maintenance_type === type)
+  );
+  document.getElementById('countLabel').textContent = `${rows.length} of ${allRecords.length} records`;
+  renderTable(rows);
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('maintenanceTable');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🔧</div><h3>No records found</h3><p>Adjust filters or schedule a new maintenance</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td class="td-name">${r.equipment_name || 'Equipment #'+r.equipment_id}</td>
+      <td><span class="dept-chip" style="background:var(--blue-light);color:#1E40AF">${r.maintenance_type}</span></td>
+      <td>${r.technician_name}</td>
+      <td>${fmtDate(r.scheduled_date)}</td>
+      <td style="color:var(--text-muted)">${fmtDate(r.completed_date)}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-icon btn-icon sm" title="Update status" onclick="openStatusModal(${r.id},'${r.status}')">🔄</button>
+        ${isAdmin ? `<button class="btn btn-ghost btn-icon btn-icon sm" title="Delete" onclick="deleteRecord(${r.id})">🗑</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('btnAdd').addEventListener('click', async () => {
+  try {
+    const equipment = await api.getEquipment();
+    document.getElementById('fEquipment').innerHTML = equipment.map(e =>
+      `<option value="${e.id}">${e.name} — ${e.department}</option>`).join('');
+  } catch(_) {}
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fTech').value = '';
+  document.getElementById('fNotes').value = '';
+  openModal('maintenanceModal');
+});
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  const data = {
+    equipment_id:    parseInt(document.getElementById('fEquipment').value),
+    maintenance_type:document.getElementById('fType').value,
+    scheduled_date:  document.getElementById('fDate').value,
+    technician_name: document.getElementById('fTech').value.trim(),
+    notes:           document.getElementById('fNotes').value.trim(),
+  };
+  if (!data.equipment_id || !data.technician_name || !data.scheduled_date)
+    return showToast('Equipment, technician and date are required.', 'warning');
+  try {
+    await api.createMaintenance(data);
+    showToast('Maintenance scheduled!');
+    closeModal('maintenanceModal');
+    load();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+function openStatusModal(id, current) {
+  document.getElementById('statusId').value = id;
+  document.getElementById('fNewStatus').value = current;
+  openModal('statusModal');
+}
+
+document.getElementById('btnUpdateStatus').addEventListener('click', async () => {
+  const id = document.getElementById('statusId').value;
+  const status = document.getElementById('fNewStatus').value;
+  try {
+    await api.updateMaintenanceStatus(id, status);
+    showToast('Status updated!');
+    closeModal('statusModal');
+    load();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+function deleteRecord(id) {
+  showConfirm({
+    title: 'Delete Record',
+    message: 'Are you sure you want to delete this maintenance record?',
+    confirmText: 'Delete',
+    onConfirm: async () => {
+      try {
+        await api.deleteMaintenance(id);
+        showToast('Record deleted.', 'warning');
+        load();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('filterStatus').addEventListener('change', applyFilters);
+document.getElementById('filterType').addEventListener('change', applyFilters);
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MedTrack — Sign In</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="login-page">
+
+  <!-- Left: form -->
+  <div class="login-left">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="logo-mark">🏥</div>
+        <div>
+          <h1>MedTrack</h1>
+          <p>Medical Equipment System</p>
+        </div>
+      </div>
+
+      <h2 class="login-heading">Welcome back</h2>
+      <p class="login-sub">Sign in to your account to continue</p>
+
+      <div class="login-error" id="loginError"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input class="form-control" type="email" id="email"
+                 placeholder="you@hospital.local" required autocomplete="username"/>
+        </div>
+        <div class="form-group" style="margin-bottom:22px">
+          <label for="password">Password</label>
+          <input class="form-control" type="password" id="password"
+                 placeholder="••••••••" required autocomplete="current-password"/>
+        </div>
+        <button class="btn btn-primary" type="submit"
+                style="width:100%;justify-content:center;padding:11px" id="btnLogin">
+          Sign In
+        </button>
+      </form>
+
+      <p style="text-align:center;font-size:12px;color:var(--text-faint);margin-top:24px">
+        MedTrack v2.0 &nbsp;·&nbsp; Hospital LAN only
+      </p>
+    </div>
+  </div>
+
+  <!-- Right: hero -->
+  <div class="login-right">
+    <div class="login-hero">
+      <h2>Smarter Equipment Maintenance Tracking</h2>
+      <p>A centralised platform for recording, tracking and maintaining all healthcare equipment — from scheduling to fault reporting.</p>
+      <div class="login-features">
+        <div class="login-feature">
+          <div class="login-feature-icon">🩺</div>
+          <span>Full equipment inventory & status tracking</span>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">🔧</div>
+          <span>Maintenance scheduling & history</span>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">⚠️</div>
+          <span>Instant fault reporting & resolution</span>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">🔒</div>
+          <span>Role-based access control</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  if (localStorage.getItem('medtrack_token')) {
+    window.location.href = 'pages/dashboard.html';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn   = document.getElementById('btnLogin');
+    const errEl = document.getElementById('loginError');
+    errEl.classList.remove('show');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    try {
+      await api.login(
+        document.getElementById('email').value.trim(),
+        document.getElementById('password').value
+      );
+      window.location.href = 'pages/dashboard.html';
+    } catch (err) {
+      errEl.textContent = err.message || 'Login failed. Please check your credentials.';
+      errEl.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MedTrack — Equipment</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div class="app">
+  <div class="main">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Equipment</div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search by name, serial, dept…"/>
+        </div>
+        <button class="btn btn-primary" id="btnAdd" style="display:none">
+          + Add Equipment
+        </button>
+      </div>
+    </div>
+
+    <div class="card" style="margin:20px 28px;border-radius:var(--radius-lg)">
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <select id="filterStatus">
+          <option value="">All Statuses</option>
+          <option>Operational</option>
+          <option>Under Maintenance</option>
+          <option>Out of Service</option>
+          <option>Retired</option>
+        </select>
+        <select id="filterDept">
+          <option value="">All Departments</option>
+        </select>
+        <div class="filter-sep"></div>
+        <span id="countLabel" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipment Name</th>
+              <th>Serial Number</th>
+              <th>Department</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Added</th>
+              <th style="width:120px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="equipTable">
+            <tr><td colspan="7"><div class="spinner-wrap"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════
+     ADD / EDIT MODAL
+═══════════════════════════════════ -->
+<div class="modal-overlay" id="equipModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Add Equipment</div>
+      <button class="modal-close" onclick="closeModal('equipModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Equipment Name <span class="required">*</span></label>
+          <input class="form-control" id="fName" placeholder="e.g. ECG Monitor"/>
+        </div>
+        <div class="form-group">
+          <label>Serial Number <span class="required">*</span></label>
+          <input class="form-control" id="fSerial" placeholder="e.g. ECG-2024-001"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Department <span class="required">*</span></label>
+          <input class="form-control" id="fDept" placeholder="e.g. Cardiology" list="deptList"/>
+          <datalist id="deptList"></datalist>
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input class="form-control" id="fLocation" placeholder="e.g. Ward 3B, Room 12"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Status</label>
+          <select class="form-control" id="fStatus">
+            <option>Operational</option>
+            <option>Under Maintenance</option>
+            <option>Out of Service</option>
+            <option>Retired</option>
+          </select>
+        </div>
+        <div class="form-group"><!-- spacer --></div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea class="form-control" id="fNotes" rows="3" placeholder="Any additional notes…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('equipModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnSave">Save Equipment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     REASSIGN DEPT MODAL
+═══════════════════════════════════ -->
+<div class="modal-overlay" id="reassignModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Reassign Department</div>
+      <button class="modal-close" onclick="closeModal('reassignModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="reassignId"/>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+        Select the new department for <strong id="reassignName"></strong>.
+      </p>
+      <div class="form-group">
+        <label>New Department <span class="required">*</span></label>
+        <input class="form-control" id="reassignDept" placeholder="e.g. ICU" list="deptList2"/>
+        <datalist id="deptList2"></datalist>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('reassignModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnReassign">Reassign</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     DETAIL DRAWER
+═══════════════════════════════════ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer('drawer')"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="drawer-title" id="drawerTitle">Equipment Details</div>
+    <button class="drawer-close" onclick="closeDrawer('drawer')">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <div class="spinner-wrap"><div class="spinner"></div></div>
+  </div>
+  <div class="drawer-footer" id="drawerFooter"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/sidebar.js"></script>
+<script>
+requireAuth();
+const isAdmin = getRole() === 'admin';
+let allEquipment = [];
+
+if (isAdmin) document.getElementById('btnAdd').style.display = 'inline-flex';
+
+// ── Load & render ─────────────────────────────────────────
+async function load() {
+  try {
+    allEquipment = await api.getEquipment();
+    populateDeptFilters();
+    applyFilters();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+function populateDeptFilters() {
+  const depts = [...new Set(allEquipment.map(e => e.department).filter(Boolean))].sort();
+  document.getElementById('filterDept').innerHTML =
+    '<option value="">All Departments</option>' +
+    depts.map(d => `<option>${d}</option>`).join('');
+  ['deptList','deptList2'].forEach(id => {
+    const dl = document.getElementById(id);
+    if (dl) dl.innerHTML = depts.map(d => `<option value="${d}">`).join('');
+  });
+}
+
+function applyFilters() {
+  const q    = document.getElementById('searchInput').value.toLowerCase();
+  const stat = document.getElementById('filterStatus').value;
+  const dept = document.getElementById('filterDept').value;
+
+  const filtered = allEquipment.filter(e =>
+    (!q    || e.name.toLowerCase().includes(q) || e.serial_number.toLowerCase().includes(q) || e.department.toLowerCase().includes(q)) &&
+    (!stat || e.status === stat) &&
+    (!dept || e.department === dept)
+  );
+
+  document.getElementById('countLabel').textContent =
+    `${filtered.length} of ${allEquipment.length} items`;
+
+  renderTable(filtered);
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('equipTable');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7">
+      <div class="empty-state">
+        <div class="empty-icon">🩺</div>
+        <h3>No equipment found</h3>
+        <p>Try adjusting your search or filters</p>
+      </div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(e => `
+    <tr>
+      <td>
+        <div class="td-name" style="cursor:pointer;color:var(--teal)" onclick="openDetail(${e.id})">${e.name}</div>
+      </td>
+      <td><span class="td-mono">${e.serial_number}</span></td>
+      <td><span class="dept-chip">${e.department}</span></td>
+      <td style="color:var(--text-muted)">${e.location || '—'}</td>
+      <td>${statusBadge(e.status, isAdmin)}</td>
+      <td style="color:var(--text-muted);font-size:12px">${fmtDate(e.created_at)}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-icon btn-icon sm" title="View details" onclick="openDetail(${e.id})">👁</button>
+        ${isAdmin ? `
+        <button class="btn btn-ghost btn-icon btn-icon sm" title="Edit" onclick="openEdit(${e.id})">✏️</button>
+        <button class="btn btn-ghost btn-icon btn-icon sm" title="Reassign dept" onclick="openReassign(${e.id})">🔀</button>
+        <button class="btn btn-ghost btn-icon btn-icon sm" title="Delete" onclick="deleteEquipment(${e.id},'${e.name.replace(/'/g,"\\'")}')">🗑</button>
+        ` : ''}
+      </td>
+    </tr>`).join('');
+
+  // Inline status badge click (admin)
+  if (isAdmin) {
+    tbody.querySelectorAll('.badge-click').forEach(badge => {
+      const row = badge.closest('tr');
+      const idx = [...tbody.rows].indexOf(row);
+      const equip = rows[idx];
+      badge.addEventListener('click', () => openInlineStatus(equip, badge));
+    });
+  }
+}
+
+// ── Inline status picker ───────────────────────────────────
+function openInlineStatus(equip, badgeEl) {
+  const statuses = ['Operational','Under Maintenance','Out of Service','Retired'];
+  let popup = document.getElementById('statusPopup');
+  if (popup) popup.remove();
+
+  popup = document.createElement('div');
+  popup.id = 'statusPopup';
+  popup.style.cssText = `
+    position:fixed;z-index:600;background:var(--white);
+    border:1px solid var(--border);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);padding:6px;min-width:180px;
+    animation:modalIn .15s ease;
+  `;
+  popup.innerHTML = statuses.map(s => `
+    <div style="padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;
+      display:flex;align-items:center;gap:8px;
+      background:${s===equip.status?'var(--teal-xlight)':'none'};
+      color:${s===equip.status?'var(--teal)':'var(--text-2)'}"
+      onmouseover="this.style.background='var(--teal-xlight)'"
+      onmouseout="this.style.background='${s===equip.status?'var(--teal-xlight)':'none'}'"
+      onclick="setStatus(${equip.id},'${s}',this.closest('#statusPopup'))">
+      ${statusBadge(s)} ${s===equip.status?'<span style=\'font-size:11px;color:var(--teal-dark)\'>current</span>':''}
+    </div>`).join('');
+
+  document.body.appendChild(popup);
+
+  const rect = badgeEl.getBoundingClientRect();
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = rect.left + 'px';
+
+  setTimeout(() => document.addEventListener('click', function handler(e) {
+    if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', handler); }
+  }), 0);
+}
+
+async function setStatus(id, status, popup) {
+  popup?.remove();
+  try {
+    await api.updateEquipment(id, { status });
+    showToast(`Status updated to "${status}"`);
+    await load();
+  } catch(err) { showToast(err.message, 'error'); }
+}
+
+// ── Add modal ──────────────────────────────────────────────
+document.getElementById('btnAdd').addEventListener('click', () => {
+  document.getElementById('modalTitle').textContent = 'Add Equipment';
+  document.getElementById('editId').value    = '';
+  document.getElementById('fName').value     = '';
+  document.getElementById('fSerial').value   = '';
+  document.getElementById('fDept').value     = '';
+  document.getElementById('fLocation').value = '';
+  document.getElementById('fStatus').value   = 'Operational';
+  document.getElementById('fNotes').value    = '';
+  document.getElementById('fSerial').disabled = false;
+  openModal('equipModal');
+});
+
+// ── Edit modal ─────────────────────────────────────────────
+function openEdit(id) {
+  const e = allEquipment.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('modalTitle').textContent = 'Edit Equipment';
+  document.getElementById('editId').value    = e.id;
+  document.getElementById('fName').value     = e.name;
+  document.getElementById('fSerial').value   = e.serial_number;
+  document.getElementById('fDept').value     = e.department;
+  document.getElementById('fLocation').value = e.location || '';
+  document.getElementById('fStatus').value   = e.status;
+  document.getElementById('fNotes').value    = e.notes || '';
+  document.getElementById('fSerial').disabled = true; // serial immutable on edit
+  openModal('equipModal');
+}
+
+document.getElementById('btnSave').addEventListener('click', async () => {
+  const id   = document.getElementById('editId').value;
+  const data = {
+    name:          document.getElementById('fName').value.trim(),
+    serial_number: document.getElementById('fSerial').value.trim(),
+    department:    document.getElementById('fDept').value.trim(),
+    location:      document.getElementById('fLocation').value.trim(),
+    status:        document.getElementById('fStatus').value,
+    notes:         document.getElementById('fNotes').value.trim(),
+  };
+  if (!data.name || !data.department || (!id && !data.serial_number))
+    return showToast('Name, serial number and department are required.', 'warning');
+  try {
+    if (id) {
+      await api.updateEquipment(id, data);
+      showToast('Equipment updated successfully!');
+    } else {
+      await api.createEquipment(data);
+      showToast('Equipment added successfully!');
+    }
+    closeModal('equipModal');
+    load();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+// ── Reassign dept ──────────────────────────────────────────
+function openReassign(id) {
+  const e = allEquipment.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('reassignId').value   = e.id;
+  document.getElementById('reassignName').textContent = e.name;
+  document.getElementById('reassignDept').value = e.department;
+  openModal('reassignModal');
+}
+
+document.getElementById('btnReassign').addEventListener('click', async () => {
+  const id   = document.getElementById('reassignId').value;
+  const dept = document.getElementById('reassignDept').value.trim();
+  if (!dept) return showToast('Please enter a department.', 'warning');
+  const e = allEquipment.find(x => x.id == id);
+  if (!e) return;
+  try {
+    await api.updateEquipment(id, { ...e, department: dept });
+    showToast(`Reassigned to "${dept}"`);
+    closeModal('reassignModal');
+    load();
+  } catch(err) { showToast(err.message, 'error'); }
+});
+
+// ── Delete ─────────────────────────────────────────────────
+function deleteEquipment(id, name) {
+  showConfirm({
+    title: 'Delete Equipment',
+    message: `Are you sure you want to delete "${name}"? This will also remove all associated maintenance records and fault reports.`,
+    confirmText: 'Delete Equipment',
+    onConfirm: async () => {
+      try {
+        await api.deleteEquipment(id);
+        showToast('Equipment deleted.', 'warning');
+        load();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+  });
+}
+
+// ── Detail drawer ──────────────────────────────────────────
+async function openDetail(id) {
+  openDrawer('drawer');
+  document.getElementById('drawerBody').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  document.getElementById('drawerFooter').innerHTML = '';
+
+  try {
+    const e = allEquipment.find(x => x.id === id) || await api.getEquipmentById(id);
+    document.getElementById('drawerTitle').textContent = e.name;
+
+    document.getElementById('drawerBody').innerHTML = `
+      <div class="drawer-section">
+        <div class="drawer-section-title">Equipment Details</div>
+        <div class="drawer-field">
+          <span class="drawer-field-label">Name</span>
+          <span class="drawer-field-value">${e.name}</span>
+        </div>
+        <div class="drawer-field">
+          <span class="drawer-field-label">Serial Number</span>
+          <span class="drawer-field-value drawer-field-mono">${e.serial_number}</span>
+        </div>
+        <div class="drawer-field">
+          <span class="drawer-field-label">Department</span>
+          <span class="drawer-field-value"><span class="dept-chip">${e.department}</span></span>
+        </div>
+        <div class="drawer-field">
+          <span class="drawer-field-label">Location</span>
+          <span class="drawer-field-value">${e.location || '—'}</span>
+        </div>
+        <div class="drawer-field">
+          <span class="drawer-field-label">Status</span>
+          <span class="drawer-field-value">${statusBadge(e.status)}</span>
+        </div>
+        <div class="drawer-field">
+          <span class="drawer-field-label">Date Added</span>
+          <span class="drawer-field-value">${fmtDate(e.created_at)}</span>
+        </div>
+      </div>
+      ${e.notes ? `
+      <div class="drawer-section">
+        <div class="drawer-section-title">Notes</div>
+        <p style="font-size:13px;color:var(--text-2);line-height:1.6">${e.notes}</p>
+      </div>` : ''}
+    `;
+
+    const footer = document.getElementById('drawerFooter');
+    if (isAdmin) {
+      footer.innerHTML = `
+        <button class="btn btn-primary btn-sm" onclick="closeDrawer('drawer');openEdit(${e.id})">✏️ Edit</button>
+        <button class="btn btn-outline btn-sm" onclick="closeDrawer('drawer');openReassign(${e.id})">🔀 Reassign Dept</button>
+        <button class="btn btn-danger-soft btn-sm" onclick="closeDrawer('drawer');deleteEquipment(${e.id},'${e.name.replace(/'/g,"\\'")}')">🗑 Delete</button>
+      `;
+    } else {
+      footer.innerHTML = `
+        <a href="faults.html" class="btn btn-outline btn-sm">⚠️ Report Fault</a>
+      `;
+    }
+  } catch(err) {
+    document.getElementById('drawerBody').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${err.message}</p></div>`;
+  }
+}
+
+// ── Event listeners ────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', applyFilters);
+document.getElementById('filterStatus').addEventListener('change', applyFilters);
+document.getElementById('filterDept').addEventListener('change', applyFilters);
+
+load();
+</script>
+</body>
+</html>

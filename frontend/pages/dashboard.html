@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MedTrack — Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+</head>
+<body>
+<div class="app">
+  <div class="main">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-chip" id="dateChip">📅 —</div>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-icon teal">🩺</div><div><div class="stat-num" id="sTotal">—</div><div class="stat-label">Total Equipment</div></div></div>
+        <div class="stat"><div class="stat-icon green">✅</div><div><div class="stat-num" id="sOp">—</div><div class="stat-label">Operational</div></div></div>
+        <div class="stat"><div class="stat-icon orange">🔧</div><div><div class="stat-num" id="sSched">—</div><div class="stat-label">Scheduled Maintenance</div></div></div>
+        <div class="stat"><div class="stat-icon red">⚠️</div><div><div class="stat-num" id="sFaults">—</div><div class="stat-label">Open Fault Reports</div></div></div>
+      </div>
+
+      <!-- Server error banner (hidden by default) -->
+      <div id="serverBanner" style="display:none;background:var(--orange-light);border:1px solid #FED7AA;border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px;font-size:13px;color:#7C2D12">
+        <strong>⚠️ Backend not connected</strong> — Start the Node.js server with <code style="background:rgba(0,0,0,.08);padding:1px 6px;border-radius:4px">npm run dev</code> inside the <code style="background:rgba(0,0,0,.08);padding:1px 6px;border-radius:4px">backend/</code> folder, then refresh this page.
+      </div>
+
+      <!-- Two columns -->
+      <div class="dash-grid">
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Upcoming Maintenance</div>
+              <div class="card-sub">Next scheduled services</div>
+            </div>
+            <a href="maintenance.html" class="btn btn-outline btn-sm">View All</a>
+          </div>
+          <div class="card-body" id="upcomingList">
+            <div class="spinner-wrap"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Recent Fault Reports</div>
+              <div class="card-sub">Latest issues raised</div>
+            </div>
+            <a href="faults.html" class="btn btn-outline btn-sm">View All</a>
+          </div>
+          <div class="card-body" id="recentFaults">
+            <div class="spinner-wrap"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Equipment by Status</div>
+              <div class="card-sub">Current inventory breakdown</div>
+            </div>
+          </div>
+          <div class="card-body" id="equipBreakdown">
+            <div class="spinner-wrap"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Overdue Maintenance</div>
+              <div class="card-sub">Past scheduled date</div>
+            </div>
+          </div>
+          <div class="card-body" id="overdueList">
+            <div class="spinner-wrap"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/sidebar.js"></script>
+<script>
+requireAuth();
+
+document.getElementById('dateChip').textContent = '📅 ' +
+  new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+function safeArray(val) {
+  return Array.isArray(val) ? val : [];
+}
+
+function showEmpty(elId, icon, msg) {
+  document.getElementById(elId).innerHTML =
+    `<div class="empty-state"><div class="empty-icon">${icon}</div><p>${msg}</p></div>`;
+}
+
+async function loadDashboard() {
+  let equipment = [], maintenance = [], faults = [];
+  let networkError = false;
+
+  // Fetch each independently so one failure doesn't blank everything
+  try { equipment   = safeArray(await api.getEquipment());   } catch(e) { networkError = true; }
+  try { maintenance = safeArray(await api.getMaintenance()); } catch(e) { networkError = true; }
+  try { faults      = safeArray(await api.getFaults());      } catch(e) { networkError = true; }
+
+  // Show banner if backend is unreachable
+  if (networkError) {
+    document.getElementById('serverBanner').style.display = 'block';
+  }
+
+  // Stats
+  document.getElementById('sTotal').textContent  = equipment.length || '—';
+  document.getElementById('sOp').textContent     = equipment.filter(e => e.status === 'Operational').length || '—';
+  document.getElementById('sSched').textContent  = maintenance.filter(m => m.status === 'Scheduled').length || '—';
+  document.getElementById('sFaults').textContent = faults.filter(f => f.status === 'Open').length || '—';
+
+  // Upcoming maintenance
+  const upcoming = maintenance.filter(m => m.status === 'Scheduled').slice(0, 5);
+  const upEl = document.getElementById('upcomingList');
+  if (!upcoming.length) {
+    showEmpty('upcomingList', '🎉', networkError ? 'Connect backend to load data' : 'No upcoming maintenance');
+  } else {
+    upEl.innerHTML = upcoming.map(m => `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:var(--blue)"></div>
+        <div class="activity-info">
+          <div class="activity-title">${m.equipment_name || 'Equipment #' + m.equipment_id}</div>
+          <div class="activity-meta">${m.maintenance_type} · ${m.technician_name}</div>
+        </div>
+        <div class="activity-time">${fmtDate(m.scheduled_date)}</div>
+      </div>`).join('');
+  }
+
+  // Recent faults
+  const recentFaults = faults.slice(0, 5);
+  if (!recentFaults.length) {
+    showEmpty('recentFaults', '✅', networkError ? 'Connect backend to load data' : 'No fault reports');
+  } else {
+    document.getElementById('recentFaults').innerHTML = recentFaults.map(f => `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:${f.severity === 'Critical' || f.severity === 'High' ? 'var(--red)' : 'var(--orange)'}"></div>
+        <div class="activity-info">
+          <div class="activity-title">${f.equipment_name || 'Equipment #' + f.equipment_id}</div>
+          <div class="activity-meta" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.description}</div>
+        </div>
+        <div>${statusBadge(f.severity)}</div>
+      </div>`).join('');
+  }
+
+  // Equipment by status
+  if (!equipment.length) {
+    showEmpty('equipBreakdown', '🩺', networkError ? 'Connect backend to load data' : 'No equipment registered');
+  } else {
+    const counts = equipment.reduce((acc, e) => { acc[e.status] = (acc[e.status] || 0) + 1; return acc; }, {});
+    document.getElementById('equipBreakdown').innerHTML = Object.entries(counts).map(([s, n]) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border-light)">
+        ${statusBadge(s)}
+        <strong style="font-size:16px">${n}</strong>
+      </div>`).join('');
+  }
+
+  // Overdue maintenance
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const overdue = maintenance.filter(m =>
+    m.status !== 'Completed' && m.status !== 'Closed' && new Date(m.scheduled_date) < today
+  ).slice(0, 5);
+
+  if (!overdue.length) {
+    showEmpty('overdueList', '✅', networkError ? 'Connect backend to load data' : 'Nothing overdue');
+  } else {
+    document.getElementById('overdueList').innerHTML = overdue.map(m => `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:var(--red)"></div>
+        <div class="activity-info">
+          <div class="activity-title">${m.equipment_name || 'Equipment #' + m.equipment_id}</div>
+          <div class="activity-meta">${m.maintenance_type} · Due ${fmtDate(m.scheduled_date)}</div>
+        </div>
+        ${statusBadge('Overdue')}
+      </div>`).join('');
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
