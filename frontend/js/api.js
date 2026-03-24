@@ -1,6 +1,6 @@
 // frontend/js/api.js — MedTrack v2
 
-const API_BASE = 'https://medtrack-backend-6p30.onrender.com/api';
+const API_BASE = 'https://medtrack-backend-qg2v.onrender.com/api';
 
 function getToken() { return localStorage.getItem('medtrack_token'); }
 
